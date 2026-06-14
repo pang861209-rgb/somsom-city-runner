@@ -6,9 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="마감 질주">
+<meta name="apple-mobile-web-app-title" content="달려라 솜솜시티">
 <meta name="theme-color" content="#e9e2d4">
-<title>끼토 마감 질주 (솜솜시티 러너 · M1)</title>
+<title>달려라 솜솜시티! (솜솜시티 러너)</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; }
@@ -57,15 +57,13 @@
   <div id="title" class="screen">
     <img id="titleBg" src="assets/bg_runner.png" onerror="this.style.display='none'" alt="">
     <div id="titleTop">
-      <div id="logo">🏃 끼토 마감 질주</div>
-      <div id="logoSub">마감이다! 은행 거리를 달려 최대한 멀리 · 탭/스페이스 = 점프 (공중에서 한 번 더!)</div>
+      <div id="logo">🏃 달려라 솜솜시티!</div>
+      <div id="logoSub">은행잎 골목을 달려 최대한 멀리! · 탭 / 스페이스 = 점프 (공중에서 한 번 더!)</div>
     </div>
     <div id="titleBtns" class="row">
       <button onclick="ui.toSelect()">캐릭터 선택 ▶</button>
       <button onclick="ui.showRanking()" style="font-size:13px;padding:7px 16px;">🏆 랭킹</button>
       <button onclick="goFullscreen()" style="font-size:13px;padding:7px 16px;">⛶ 전체화면</button>
-      <div style="flex-basis:100%;height:0;"></div>
-      <div id="fsHint">📱 아이폰: 공유 → '홈 화면에 추가'로 전체화면 플레이</div>
     </div>
   </div>
 
@@ -135,15 +133,18 @@ const LOSE = '으아아—! 마감 늦었어!';
 
 function downscale(src, tw){ let c=src; while(c.width/2>tw){ const n=document.createElement('canvas'); n.width=(c.width/2)|0; n.height=(c.height/2)|0; const x=n.getContext('2d'); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(c,0,0,n.width,n.height); c=n; } return c; }
 function keyOutWhiteBg(im){ const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight; const x=c.getContext('2d'); x.drawImage(im,0,0); const d=x.getImageData(0,0,c.width,c.height),p=d.data,w=c.width,h=c.height; const white=i=>p[i]>228&&p[i+1]>228&&p[i+2]>228; const seen=new Uint8Array(w*h),q=[]; for(let X=0;X<w;X++)q.push(X,(h-1)*w+X); for(let Y=0;Y<h;Y++)q.push(Y*w,Y*w+w-1); while(q.length){const n=q.pop(); if(n<0||n>=w*h||seen[n])continue; seen[n]=1; if(!white(n*4))continue; p[n*4+3]=0; const X=n%w; if(X>0)q.push(n-1); if(X<w-1)q.push(n+1); q.push(n-w,n+w);} x.putImageData(d,0,0); return c; }
+// 투명 여백 잘라내기 (발이 땅에 붙고 히트박스가 실제 몸에 맞도록)
+function trimCanvas(c){ const x=c.getContext('2d'),w=c.width,h=c.height,d=x.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=-1,y1=-1; for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){ if(d[(yy*w+xx)*4+3]>10){ if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(yy<y0)y0=yy; if(yy>y1)y1=yy; } } if(x1<x0)return c; const nw=x1-x0+1,nh=y1-y0+1,n=document.createElement('canvas'); n.width=nw; n.height=nh; n.getContext('2d').drawImage(c,x0,y0,nw,nh,0,0,nw,nh); return n; }
 
 // ================= 에셋 =================
-const sprites = {};
-for (const k in CHARS) {
-  const c = CHARS[k], target = c.dw * DPR * 1.6;
-  const im = new Image(); im.src = c.spr;
-  im.onload = () => { try { sprites[k] = downscale(keyOutWhiteBg(im), target); } catch(e) { sprites[k] = im; } };
-  im.onerror = () => { const f = new Image(); f.src = c.sd; f.onload = () => { try { sprites[k] = downscale(keyOutWhiteBg(f), target); } catch(e) { sprites[k] = f; } }; };
+const sprites = {};   // sprites[k] = { a:frameA, b:frameB }
+function loadFrame(k, slot, src, fallback){
+  const c = CHARS[k], target = c.dw * DPR * 1.7;
+  const im = new Image(); im.src = src;
+  im.onload = () => { sprites[k] = sprites[k] || {}; try { sprites[k][slot] = downscale(trimCanvas(keyOutWhiteBg(im)), target); } catch(e) { sprites[k][slot] = im; } };
+  im.onerror = () => { if(!fallback) return; const f = new Image(); f.src = fallback; f.onload = () => { sprites[k] = sprites[k] || {}; try { sprites[k][slot] = downscale(trimCanvas(keyOutWhiteBg(f)), target); } catch(e) { sprites[k][slot] = f; } }; };
 }
+for (const k in CHARS) { loadFrame(k, 'a', CHARS[k].spr, CHARS[k].sd); loadFrame(k, 'b', 'assets/run_'+k+'_b.png', CHARS[k].spr); }
 let bg = new Image(), bgReady = false; bg.src = 'assets/bg_runner.png'; bg.onload = () => bgReady = true;
 let acorn = null; { const a = new Image(); a.src = 'assets/prop_acorn.png'; a.onload = () => { try { acorn = downscale(keyOutWhiteBg(a), 90); } catch(e){} }; }
 
@@ -211,10 +212,12 @@ function loop(now){
     s.nextGem-=s.speed*dt; if(s.nextGem<=0){ spawnGems(s); s.nextGem=360+Math.random()*260; }
   }
 
-  const half=s.c.dw*0.22, py=GROUND+s.y, cx=PX, cy=py-32;
+  const _set=sprites[s.key], _fa=_set&&(_set.a||_set.b);
+  const drawW=_fa?s.c.dw*((_fa.width||_fa.naturalWidth)/(_fa.height||_fa.naturalHeight)):s.c.dw*0.7;
+  const half=Math.max(10,Math.min(24,drawW*0.30)), py=GROUND+s.y, cx=PX, cy=py-s.c.dw*0.45;
   for(const o of s.obs){
     o.x-=s.speed*dt;
-    if(!s.over && s.inv<=0 && cx+half>o.x+4 && cx-half<o.x+o.w-4 && py>GROUND-o.h+4){
+    if(!s.over && s.inv<=0 && cx+half>o.x+6 && cx-half<o.x+o.w-6 && py>GROUND-o.h+6){
       if(s.shield>0){ s.shield--; s.inv=1.1; s.shake=.35; sfx('block'); s.floats.push({x:PX,y:py-70,txt:'막았다!',col:'#3a7a5a',life:1.1}); }
       else { s.over=true; s.overAt=now; s.shake=.5; s.hitstop=.12; sfx('hit'); sfx('over'); stopBgm(); }
     }
@@ -251,22 +254,26 @@ function draw(s,now,score){
   // 배경 패럴랙스
   if(bgReady){ const sc=(GROUND+14)/bg.height, dw=bg.width*sc, dh=bg.height*sc; let off=-((s.dist*0.4)%dw); for(let x=off;x<W;x+=dw)ctx.drawImage(bg,x,(GROUND+14)-dh,dw,dh); }
   else { ctx.fillStyle='#fdfbf5'; ctx.fillRect(0,0,W,H); ctx.fillStyle='#f0d878'; for(let x=-10;x<=W+10;x+=46){ctx.beginPath();ctx.arc(x,40,34,0,Math.PI);ctx.fill();} }
+  ctx.fillStyle='rgba(252,250,244,0.55)'; ctx.fillRect(0,0,W,GROUND+2);   // 배경 죽이기 (전경 가독성)
   ctx.fillStyle='#efe6d2'; ctx.fillRect(0,GROUND,W,H-GROUND);
   ctx.strokeStyle='#222'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,GROUND); ctx.lineTo(W,GROUND); ctx.stroke();
   ctx.strokeStyle='rgba(150,130,90,.35)'; ctx.lineWidth=3; ctx.beginPath(); let lo=-((s.dist)%64); for(let x=lo;x<W;x+=64){ctx.moveTo(x,GROUND+24);ctx.lineTo(x+28,GROUND+24);} ctx.stroke();
   // 장애물
   for(const o of s.obs){ const top=GROUND-o.h; ctx.fillStyle=o.h>48?'#b07a4a':'#9a7a4a'; ctx.strokeStyle='#222'; ctx.lineWidth=2; ctx.beginPath(); ctx.roundRect(o.x,top,o.w,o.h,5); ctx.fill(); ctx.stroke(); ctx.fillStyle='rgba(255,255,255,.18)'; ctx.beginPath(); ctx.roundRect(o.x+3,top+3,o.w-6,6,3); ctx.fill(); }
   // 도토리
-  for(const g of s.gems){ if(acorn){ const w=28,h=28*acorn.height/acorn.width; ctx.drawImage(acorn,g.x-w/2,g.y-h/2,w,h);} else { ctx.font='24px serif'; ctx.textAlign='center'; ctx.fillText('🌰',g.x,g.y+8);} }
+  for(const g of s.gems){ ctx.globalAlpha=0.5; ctx.fillStyle='#fffaf0'; ctx.beginPath(); ctx.arc(g.x,g.y,16,0,7); ctx.fill(); ctx.globalAlpha=1; if(acorn){ const w=28,h=28*acorn.height/acorn.width; ctx.drawImage(acorn,g.x-w/2,g.y-h/2,w,h);} else { ctx.font='24px serif'; ctx.textAlign='center'; ctx.fillText('🌰',g.x,g.y+8);} }
   // 파티클
   for(const p of s.parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,7); ctx.fill(); } ctx.globalAlpha=1;
-  // 끼토(선택 캐릭터)
-  const im=sprites[s.key]; const py=GROUND+s.y; const bob=s.onGround?Math.sin(s.run*0.05)*3:0;
+  // 캐릭터 (선택) — 발을 땅에 붙이고 2프레임 달리기 애니메이션
+  const set=sprites[s.key];
+  let im=null;
+  if(set){ im = (!s.onGround) ? (set.a||set.b) : ((Math.floor(s.run/20)%2===0)?(set.a||set.b):(set.b||set.a)); }
+  const py=GROUND+s.y; const bob=s.onGround?-Math.abs(Math.sin(s.run*0.08))*2:0;
   // 그림자
-  const sa=Math.max(.12,.32-(-s.y)/600); ctx.globalAlpha=sa; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(PX,GROUND+5,s.c.dw*0.34-(-s.y)/30,6,0,0,7); ctx.fill(); ctx.globalAlpha=1;
-  ctx.save(); ctx.translate(PX,py-2+bob); if(!s.onGround)ctx.rotate(s.vy<0?-0.16:0.14);
+  const sa=Math.max(.1,.3-(-s.y)/600); ctx.globalAlpha=sa; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(PX,GROUND+4,s.c.dw*0.3-(-s.y)/28,5.5,0,0,7); ctx.fill(); ctx.globalAlpha=1;
+  ctx.save(); ctx.translate(PX,py+bob); if(!s.onGround)ctx.rotate(s.vy<0?-0.12:0.12);
   if(s.inv>0 && Math.floor(now/70)%2===0)ctx.globalAlpha=0.4;
-  if(im){ const dw=s.c.dw, dh=dw*(im.height||im.naturalHeight)/(im.width||im.naturalWidth); ctx.drawImage(im,-dw/2,-dh,dw,dh); }
+  if(im){ const sw=im.width||im.naturalWidth, sh=im.height||im.naturalHeight, dh=s.c.dw, dw=dh*sw/sh; ctx.drawImage(im,-dw/2,-dh,dw,dh); }
   ctx.globalAlpha=1; ctx.restore();
   // 플로터
   for(const f of s.floats){ ctx.globalAlpha=Math.min(1,f.life/.4); ctx.font='800 16px sans-serif'; ctx.textAlign='center'; ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x,f.y); ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y); } ctx.globalAlpha=1;
@@ -285,7 +292,7 @@ function endGame(score){
   const best=Math.max(score,+(localStorage.getItem('runner_best_'+key)||0));
   const isNew=score>0&&score>=best; localStorage.setItem('runner_best_'+key,best);
   $('resTitle').textContent=isNew?'🎉 최고 기록!':'게임 오버';
-  const spr=sprites[key]; $('resImg').src=spr&&spr.toDataURL?spr.toDataURL():c.sd;
+  const spr=sprites[key]&&(sprites[key].a||sprites[key].b); $('resImg').src=spr&&spr.toDataURL?spr.toDataURL():c.sd;
   $('resQuote').textContent='"'+(c.name==='끼토'?LOSE:c.intro)+'"';
   $('resScore').textContent=score+' m';
   $('resDetail').textContent=c.name+' · 도토리 '+s.coins+'개';
@@ -332,8 +339,8 @@ async function shareCard(){
   if(!lastResult)return; const c=CHARS[lastResult.key];
   const SC=2,cw=460,ch=420; const cn=document.createElement('canvas'); cn.width=cw*SC; cn.height=ch*SC; const x=cn.getContext('2d'); x.scale(SC,SC);
   x.fillStyle='#fdfbf5'; x.fillRect(0,0,cw,ch); x.strokeStyle='#222'; x.lineWidth=3; x.strokeRect(10,10,cw-20,ch-20);
-  x.textAlign='center'; x.fillStyle='#5a4a3a'; x.font='800 24px sans-serif'; x.fillText('🏃 끼토 마감 질주',cw/2,50);
-  const spr=sprites[lastResult.key]; if(spr){ const h=150,w=h*(spr.height||spr.naturalHeight)/(spr.width||spr.naturalWidth); x.drawImage(spr,cw/2-w/2,66,w,h); }
+  x.textAlign='center'; x.fillStyle='#5a4a3a'; x.font='800 24px sans-serif'; x.fillText('🏃 달려라 솜솜시티!',cw/2,50);
+  const spr=sprites[lastResult.key]&&(sprites[lastResult.key].a||sprites[lastResult.key].b); if(spr){ const h=150,w=h*(spr.height||spr.naturalHeight)/(spr.width||spr.naturalWidth); x.drawImage(spr,cw/2-w/2,66,w,h); }
   x.font='800 44px sans-serif'; x.fillStyle='#b08a3a'; x.fillText(lastResult.score+' m',cw/2,268);
   x.font='800 16px sans-serif'; x.fillStyle='#5a4a3a'; x.fillText(c.name+' · 도토리 '+lastResult.coins+'개',cw/2,298);
   if(lastResult.isNew){ x.font='800 16px sans-serif'; x.fillStyle='#d2452a'; x.fillText('🎉 신기록 달성!',cw/2,324); }
