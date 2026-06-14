@@ -2,15 +2,22 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="마감 질주">
+<meta name="theme-color" content="#e9e2d4">
 <title>끼토 마감 질주 (솜솜시티 러너 · M1)</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; }
-  body { background:#e9e2d4; font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif; display:flex; justify-content:center; align-items:center; }
-  #app { width:min(96vw, 168vh); aspect-ratio:760/420; max-height:96vh; position:relative; user-select:none; }
-  canvas { display:block; width:100%; height:100%; background:#fdfbf5; border-radius:12px; touch-action:none; }
-  .screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; border-radius:12px; padding:14px 18px; text-align:center; overflow-y:auto; }
+  html,body { height:100%; overflow:hidden; }
+  body { background:#0e0e0e; font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif; display:flex; justify-content:center; align-items:center; }
+  #app { width:100vw; height:100vh; height:100dvh; position:relative; user-select:none; }
+  canvas { display:block; width:100%; height:100%; background:#fdfbf5; touch-action:none; }
+  #rotate { position:fixed; inset:0; z-index:99; background:#fdfbf5; display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; font-size:20px; font-weight:800; color:#5a4a3a; text-align:center; padding:24px; }
+  @media (orientation:portrait) { #rotate { display:flex; } }
+  .screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:14px 18px; text-align:center; overflow-y:auto; }
   .hidden { display:none; }
   h1 { font-size:24px; color:#5a4a3a; }
   .sub { color:#7a6a5a; font-size:12px; line-height:1.5; }
@@ -21,6 +28,7 @@
   #titleTop, #titleBtns { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
   #logo { font-size:30px; color:#5a4a3a; text-shadow:-2px -2px 0 #fdfbf5,2px -2px 0 #fdfbf5,-2px 2px 0 #fdfbf5,2px 2px 0 #fdfbf5,0 3px 0 #fdfbf5; }
   #logoSub { font-size:12px; color:#6a5a48; text-shadow:-1px -1px 0 #fdfbf5,1px -1px 0 #fdfbf5,-1px 1px 0 #fdfbf5,1px 1px 0 #fdfbf5; }
+  #fsHint { font-size:11px; color:#6a5a48; text-shadow:-1px -1px 0 #fdfbf5,1px -1px 0 #fdfbf5,-1px 1px 0 #fdfbf5,1px 1px 0 #fdfbf5; }
   #select, #ranking, #result { background:#fdfbf5; }
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; max-width:680px; }
   .card { border:2px solid #222; border-radius:10px; background:#fff; padding:6px 6px 8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; }
@@ -42,6 +50,7 @@
 </style>
 </head>
 <body>
+<div id="rotate">📱 가로로 돌려주세요!<div style="font-size:13px;font-weight:600;color:#7a6a5a;">마감 질주는 가로 화면 전용이에요</div></div>
 <div id="app">
   <canvas id="cv" width="760" height="420"></canvas>
 
@@ -54,6 +63,9 @@
     <div id="titleBtns" class="row">
       <button onclick="ui.toSelect()">캐릭터 선택 ▶</button>
       <button onclick="ui.showRanking()" style="font-size:13px;padding:7px 16px;">🏆 랭킹</button>
+      <button onclick="goFullscreen()" style="font-size:13px;padding:7px 16px;">⛶ 전체화면</button>
+      <div style="flex-basis:100%;height:0;"></div>
+      <div id="fsHint">📱 아이폰: 공유 → '홈 화면에 추가'로 전체화면 플레이</div>
     </div>
   </div>
 
@@ -108,9 +120,16 @@ const CHARS = {
 
 // ================= 기본 =================
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-const W = 760, H = 420, GROUND = H - 64, PX = 120;
 const DPR = Math.min(3, window.devicePixelRatio || 1);
-cv.width = W * DPR; cv.height = H * DPR;
+let W = 760, H = 420, GROUND = 353, PX = 114;   // 화면 크기에 맞춰 layout()에서 갱신
+function layout(){
+  const r = cv.getBoundingClientRect();
+  W = Math.max(360, Math.round(r.width)); H = Math.max(240, Math.round(r.height));
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  GROUND = Math.round(H * 0.84); PX = Math.round(W * 0.15);
+}
+addEventListener('resize', layout);
+addEventListener('orientationchange', () => setTimeout(layout, 250));
 const $ = id => document.getElementById(id);
 const LOSE = '으아아—! 마감 늦었어!';
 
@@ -151,9 +170,9 @@ let S=null, raf=null, curKey='kkito';
 const GRAV_BASE=2500;
 function newState(key){
   const c=CHARS[key];
-  return { key, c, dist:0, speed:230*c.spd, base:230*c.spd, cap:640*c.spd, coins:0, coinPts:0,
-    y:0, vy:0, onGround:true, jumps:2, run:0, shield:c.shield, inv:0, introT:1.5, recordShown:false,
-    obs:[], gems:[], parts:[], floats:[], nextObs:360, nextGem:220,
+  return { key, c, dist:0, speed:195*c.spd, base:195*c.spd, cap:560*c.spd, coins:0, coinPts:0,
+    y:0, vy:0, onGround:true, jumps:2, run:0, shield:c.shield, inv:0, introT:1.8, recordShown:false,
+    obs:[], gems:[], parts:[], floats:[], nextObs:540, nextGem:260,
     over:false, overAt:0, shake:0, hitstop:0, last:performance.now(),
     best:+(localStorage.getItem('runner_best_'+key)||0) };
 }
@@ -163,9 +182,9 @@ function jump(){ const s=S; if(!s||s.over||s.jumps<=0)return; const dj=!s.onGrou
 // ================= 스폰 =================
 function spawnObstacle(s){
   const r=Math.random(); let h,w;
-  if(r<0.5){ h=30+Math.random()*14; w=28+Math.random()*16; }
-  else if(r<0.82){ h=50+Math.random()*16; w=26+Math.random()*10; }
-  else { s.obs.push({x:W+40+105,w:26,h:44}); h=40; w=24; }
+  if(r<0.6){ h=28+Math.random()*12; w=28+Math.random()*16; }
+  else if(r<0.9){ h=44+Math.random()*12; w=26+Math.random()*10; }
+  else { s.obs.push({x:W+40+130,w:26,h:40}); h=38; w=24; }   // 연속 2개 (10%)
   s.obs.push({x:W+40,w,h});
 }
 function spawnGems(s){
@@ -176,18 +195,19 @@ function spawnGems(s){
 // ================= 루프 =================
 function loop(now){
   const s=S; if(!s)return;
+  if(H>W){ s.last=performance.now(); raf=requestAnimationFrame(loop); return; }   // 세로 화면 = 일시정지
   let dt=Math.min(.05,(now-s.last)/1000); s.last=now;
   if(s.over)dt*=.25; if(s.hitstop>0){ s.hitstop-=dt; dt=0; }
   if(s.introT>0)s.introT-=dt;
   if(s.inv>0)s.inv-=dt;
 
   if(!s.over){
-    s.speed=Math.min(s.cap, s.speed+7*s.c.spd*dt);
+    s.speed=Math.min(s.cap, s.speed+4.2*s.c.spd*dt);
     s.dist+=s.speed*dt; s.run+=s.speed*dt;
     s.vy+=s.c.grav*dt; s.y+=s.vy*dt;
     if(s.y>=0){ if(!s.onGround){ sfx('land'); for(let i=0;i<5;i++)s.parts.push({x:PX,y:GROUND,vx:(Math.random()-.3)*80,vy:-15,g:300,life:.3,max:.3,size:3,col:'#d8c8a8'}); } s.y=0; s.vy=0; s.onGround=true; s.jumps=2; }
     if(s.onGround&&Math.random()<.25)s.parts.push({x:PX-15,y:GROUND-2,vx:-55,vy:-8,g:120,life:.3,max:.3,size:2.5,col:'rgba(180,160,120,.5)'});
-    s.nextObs-=s.speed*dt; if(s.nextObs<=0){ spawnObstacle(s); s.nextObs=300+Math.random()*250; }
+    s.nextObs-=s.speed*dt; if(s.nextObs<=0){ spawnObstacle(s); s.nextObs=420+Math.random()*300; }
     s.nextGem-=s.speed*dt; if(s.nextGem<=0){ spawnGems(s); s.nextGem=360+Math.random()*260; }
   }
 
@@ -351,6 +371,12 @@ const ui={
   },
 };
 buildGrid();
+layout();
+function goFullscreen(){
+  const el=document.documentElement, req=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(req){ try{ const p=req.call(el); if(p&&p.catch)p.catch(()=>{}); }catch(e){} }
+  else { alert('아이폰은 사파리 하단 공유 버튼 → "홈 화면에 추가"를 누르면 전체화면으로 플레이돼요!'); }
+}
 
 // ================= 입력 =================
 function press(e){ if(e&&e.cancelable)e.preventDefault(); if(S&&!S.over)jump(); }
