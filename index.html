@@ -104,8 +104,8 @@
 const CHARS = {
   kkito:      { name:'끼토',  spr:'assets/run_kkito.png',  sd:'assets/sd_kkito.png',  dw:80, spd:1.0,  jv:800, djv:720, grav:2500, shield:0, magnet:0,   coinx:1,
     trait:'점프 장인 — 가장 높은 점프 + 더블점프 (만능 기본)', intro:'마감이다! 달려, 끼토!' },
-  migae:      { name:'미개',  spr:'assets/run_migae.png',  sd:'assets/sd_migae.png',  dw:50, spd:1.18, jv:700, djv:660, grav:2600, shield:0, magnet:0,   coinx:1,
-    trait:'스피드형 — 가장 빠르고 작아 잘 안 맞음 (고수용)', intro:'뽈뽈뽈—! 따라와!' },
+  migae:      { name:'미개',  spr:'assets/run_migae.png',  sd:'assets/sd_migae.png',  dw:50, spd:1.0, jv:700, djv:600, grav:2350, shield:0, magnet:0, coinx:1, jumps:3,
+    trait:'삼단 점프 — 6다리로 공중에서 두 번 더! 작아서 잘 안 맞음', intro:'뽈뽈뽈—! 따라와!' },
   ramda:      { name:'람다',  spr:'assets/run_ramda.png',  sd:'assets/sd_ramda.png',  dw:82, spd:1.0,  jv:770, djv:700, grav:2500, shield:0, magnet:135, coinx:1,
     trait:'수집형 — 도토리 자석 (주변 도토리가 끌려옴)', intro:'도토리는 다 내 거야!' },
   boneul:     { name:'보늘',  spr:'assets/run_boneul.png', sd:'assets/sd_boneul.png', dw:92, spd:0.82, jv:715, djv:650, grav:2700, shield:1, magnet:0,   coinx:1,
@@ -172,7 +172,7 @@ const GRAV_BASE=2500;
 function newState(key){
   const c=CHARS[key];
   return { key, c, dist:0, speed:195*c.spd, base:195*c.spd, cap:560*c.spd, coins:0, coinPts:0,
-    y:0, vy:0, onGround:true, jumps:2, run:0, shield:c.shield, inv:0, introT:1.8, recordShown:false,
+    y:0, vy:0, onGround:true, jumps:(c.jumps||2), run:0, shield:c.shield, inv:0, introT:1.8, recordShown:false,
     obs:[], gems:[], parts:[], floats:[], nextObs:540, nextGem:260,
     over:false, overAt:0, shake:0, hitstop:0, last:performance.now(),
     best:+(localStorage.getItem('runner_best_'+key)||0) };
@@ -206,7 +206,7 @@ function loop(now){
     s.speed=Math.min(s.cap, s.speed+4.2*s.c.spd*dt);
     s.dist+=s.speed*dt; s.run+=s.speed*dt;
     s.vy+=s.c.grav*dt; s.y+=s.vy*dt;
-    if(s.y>=0){ if(!s.onGround){ sfx('land'); for(let i=0;i<5;i++)s.parts.push({x:PX,y:GROUND,vx:(Math.random()-.3)*80,vy:-15,g:300,life:.3,max:.3,size:3,col:'#d8c8a8'}); } s.y=0; s.vy=0; s.onGround=true; s.jumps=2; }
+    if(s.y>=0){ if(!s.onGround){ sfx('land'); for(let i=0;i<5;i++)s.parts.push({x:PX,y:GROUND,vx:(Math.random()-.3)*80,vy:-15,g:300,life:.3,max:.3,size:3,col:'#d8c8a8'}); } s.y=0; s.vy=0; s.onGround=true; s.jumps=(s.c.jumps||2); }
     if(s.onGround&&Math.random()<.25)s.parts.push({x:PX-15,y:GROUND-2,vx:-55,vy:-8,g:120,life:.3,max:.3,size:2.5,col:'rgba(180,160,120,.5)'});
     s.nextObs-=s.speed*dt; if(s.nextObs<=0){ spawnObstacle(s); s.nextObs=420+Math.random()*300; }
     s.nextGem-=s.speed*dt; if(s.nextGem<=0){ spawnGems(s); s.nextGem=360+Math.random()*260; }
