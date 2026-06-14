@@ -30,13 +30,22 @@
   #logoSub { font-size:12px; color:#6a5a48; text-shadow:-1px -1px 0 #fdfbf5,1px -1px 0 #fdfbf5,-1px 1px 0 #fdfbf5,1px 1px 0 #fdfbf5; }
   #fsHint { font-size:11px; color:#6a5a48; text-shadow:-1px -1px 0 #fdfbf5,1px -1px 0 #fdfbf5,-1px 1px 0 #fdfbf5,1px 1px 0 #fdfbf5; }
   #select, #ranking, #result { background:#fdfbf5; }
-  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; max-width:680px; }
-  .card { border:2px solid #222; border-radius:10px; background:#fff; padding:6px 6px 8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .card:active { transform:translateY(2px); }
-  .card img { width:62px; height:54px; object-fit:contain; }
-  .card .nm { font-weight:800; font-size:13px; color:#5a4a3a; }
-  .card .tr { font-size:10px; color:#7a6a5a; line-height:1.35; min-height:38px; }
-  .card .bs { font-size:10px; color:#b08a3a; font-weight:800; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; max-width:720px; }
+  .card { border:2px solid #2b2620; border-radius:14px; background:#fff; padding:8px 10px; cursor:pointer; display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; box-shadow:0 3px 0 #2b2620; position:relative; transition:transform .05s; }
+  .card:active { transform:translateY(3px); box-shadow:0 0 0 #2b2620; }
+  .card .por { width:54px; height:50px; display:flex; align-items:flex-end; justify-content:center; }
+  .card .por img { max-width:54px; max-height:50px; object-fit:contain; }
+  .card .info { text-align:left; min-width:0; }
+  .card .top { display:flex; align-items:center; gap:5px; margin-bottom:1px; }
+  .card .nm { font-weight:900; font-size:14px; color:#3a3128; }
+  .card .badge { font-size:9px; font-weight:800; padding:1px 6px; border-radius:8px; color:#fff; white-space:nowrap; }
+  .card .abil { font-size:10px; color:#6a5a48; font-weight:700; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .bar { display:flex; align-items:center; gap:5px; margin-top:1px; }
+  .card .bar .lab { font-size:8px; color:#9a8b7a; width:20px; font-weight:700; }
+  .card .seg { display:flex; gap:2px; }
+  .card .seg i { width:9px; height:5px; border-radius:1px; background:#e7e1d2; display:block; }
+  .card .seg i.on { background:#e0a83a; }
+  .card .best { position:absolute; top:7px; right:9px; font-size:9px; font-weight:800; color:#b08a3a; }
   #resQuote { font-size:13px; color:#5a4a3a; background:#f3ede2; border-radius:8px; padding:6px 12px; }
   #nameRow { display:none; gap:8px; align-items:center; }
   #nameRow input { border:2px solid #222; border-radius:10px; padding:8px 12px; font-size:15px; width:120px; background:#fff; }
@@ -69,7 +78,7 @@
 
   <div id="select" class="screen hidden">
     <h1>캐릭터 선택</h1>
-    <div class="sub">주인공은 끼토! 하지만 친구들마다 특성이 달라요 (강점엔 약점이 따라옵니다)</div>
+    <div class="sub">함께 달릴 친구를 골라보세요 · 속도 · 점프 · 회피가 캐릭터마다 달라요</div>
     <div class="grid" id="charGrid"></div>
     <button onclick="ui.toTitle()" style="font-size:13px;padding:7px 16px;">← 뒤로</button>
   </div>
@@ -114,6 +123,17 @@ const CHARS = {
     trait:'플로팅형 — 천천히 떨어져 타이밍이 관대 (쉬움)', intro:'서두르지 않아도 돼요.' },
   lachilchin: { name:'라칠친', spr:'assets/run_lachilchin.png', sd:'assets/sd_lachilchin.png', dw:76, spd:0.9, jv:760, djv:690, grav:2500, shield:0, magnet:0, coinx:2,
     trait:'알뜰형 — 도토리 점수 2배 (느린 시작)', intro:'아이구, 천천히 줍자 그래~' },
+};
+
+// ================= 캐릭터 카드 표시용 (타입·특기·스탯) =================
+// st: [속도, 점프, 회피] 0~5
+const CARD = {
+  kkito:      { type:'만능', col:'#4a78c0', abil:'🐰 최고 점프 + 더블점프',  st:[3,5,3] },
+  migae:      { type:'기동', col:'#8a6fb0', abil:'✨ 삼단 점프 · 작은 몸',    st:[3,4,5] },
+  ramda:      { type:'수집', col:'#d08a3a', abil:'🧲 도토리 자석',          st:[3,3,3] },
+  boneul:     { type:'탱커', col:'#5a9a5a', abil:'🛡 첫 충돌 1회 무효',      st:[1,2,5] },
+  bookgeo:    { type:'안정', col:'#3a9a9a', abil:'🪶 느린 낙하 (쉬움)',      st:[2,2,4] },
+  lachilchin: { type:'알뜰', col:'#c87a9a', abil:'💰 도토리 점수 2배',      st:[2,3,3] },
 };
 
 // ================= 기본 =================
@@ -355,7 +375,12 @@ function buildGrid(){
   const g=$('charGrid'); g.innerHTML='';
   for(const k in CHARS){ const c=CHARS[k], best=localStorage.getItem('runner_best_'+k)||0;
     const d=document.createElement('div'); d.className='card';
-    d.innerHTML='<img src="'+c.spr+'" onerror="this.src=\''+c.sd+'\'"><div class="nm">'+c.name+'</div><div class="tr">'+c.trait+'</div><div class="bs">BEST '+best+' m</div>';
+    const cd=CARD[k], labs=['속도','점프','회피'];
+    const bars=cd.st.map((v,i)=>{ let seg=''; for(let j=0;j<5;j++)seg+='<i class="'+(j<v?'on':'')+'"></i>'; return '<div class="bar"><span class="lab">'+labs[i]+'</span><span class="seg">'+seg+'</span></div>'; }).join('');
+    d.innerHTML='<div class="por"><img src="'+c.spr+'" onerror="this.src=\''+c.sd+'\'"></div>'
+      +'<div class="info"><div class="top"><span class="nm">'+c.name+'</span><span class="badge" style="background:'+cd.col+'">'+cd.type+'</span></div>'
+      +'<div class="abil">'+cd.abil+'</div>'+bars+'</div>'
+      +'<div class="best">BEST '+best+'</div>';
     d.onclick=()=>ui.play(k); g.appendChild(d);
   }
 }
