@@ -157,25 +157,7 @@ function keyOutWhiteBg(im){ const c=document.createElement('canvas'); c.width=im
 function trimCanvas(c){ const x=c.getContext('2d'),w=c.width,h=c.height,d=x.getImageData(0,0,w,h).data; let x0=w,y0=h,x1=-1,y1=-1; for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){ if(d[(yy*w+xx)*4+3]>10){ if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(yy<y0)y0=yy; if(yy>y1)y1=yy; } } if(x1<x0)return c; const nw=x1-x0+1,nh=y1-y0+1,n=document.createElement('canvas'); n.width=nw; n.height=nh; n.getContext('2d').drawImage(c,x0,y0,nw,nh,0,0,nw,nh); return n; }
 
 // ================= 에셋 =================
-const sprites = {};   // sprites[k] = [frame canvases]  (런사이클)
-// 전 프레임을 가로지르는 바닥 선 제거 (가로로 60%+ 이어진 행 = 바닥선)
-function stripGroundLine(c){
-  const x=c.getContext('2d'),w=c.width,h=c.height,im=x.getImageData(0,0,w,h),d=im.data;
-  for(let yy=0;yy<h;yy++){ let cnt=0; for(let xx=0;xx<w;xx++) if(d[(yy*w+xx)*4+3]>14) cnt++; if(cnt>w*0.6){ for(let xx=0;xx<w;xx++) d[(yy*w+xx)*4+3]=0; } }
-  x.putImageData(im,0,0); return c;
-}
-// 4프레임 균등 스트립 분할: 각 경계를 가장 빈 컬럼(간격)으로 스냅
-function sliceStrip(c, N){
-  N=N||4; const t=trimCanvas(c); const x=t.getContext('2d'),w=t.width,h=t.height,d=x.getImageData(0,0,w,h).data;
-  const col=new Array(w).fill(0);
-  for(let xx=0;xx<w;xx++){ let cnt=0; for(let yy=0;yy<h;yy++) if(d[(yy*w+xx)*4+3]>14) cnt++; col[xx]=cnt; }
-  const cuts=[0];
-  for(let i=1;i<N;i++){ const center=Math.round(w*i/N), win=Math.round(w*0.10); let best=center,bv=1e9;
-    for(let xx=center-win;xx<=center+win;xx++){ if(xx<=cuts[cuts.length-1]||xx>=w)continue; if(col[xx]<bv){bv=col[xx];best=xx;} } cuts.push(best); }
-  cuts.push(w);
-  const out=[]; for(let i=0;i<N;i++){ const x0=cuts[i],x1=cuts[i+1],fw=x1-x0; if(fw<8)continue; const n=document.createElement('canvas'); n.width=fw; n.height=h; n.getContext('2d').drawImage(t,x0,0,fw,h,0,0,fw,h); out.push(trimCanvas(n)); }
-  return out;
-}
+const sprites = {};   // sprites[k] = [4 정렬된 프레임]  (오프라인에서 슬라이스+정렬해 구운 PNG)
 function loadAB(k,target){   // 폴백: 기존 단일/2프레임
   const c=CHARS[k], out=[null,null];
   const set=(i,src,fb)=>{ const im=new Image(); im.src=src;
@@ -184,13 +166,15 @@ function loadAB(k,target){   // 폴백: 기존 단일/2프레임
   };
   set(0,c.spr,c.sd); set(1,'assets/run_'+k+'_b.png',null);
 }
-function loadCycle(k){
-  const target=CHARS[k].dw*DPR*1.7;
-  const strip=new Image(); strip.src='assets/cycle_'+k+'.png';
-  strip.onload=()=>{ try{ const fr=sliceStrip(stripGroundLine(keyOutWhiteBg(strip))).map(f=>downscale(f,target)); if(fr.length>=3 && fr.length<=8){ sprites[k]=fr; return; } }catch(e){} loadAB(k,target); };
-  strip.onerror=()=>loadAB(k,target);
+function loadFrames(k){
+  const target=CHARS[k].dw*DPR*1.7, out=[null,null,null,null]; let errs=0;
+  for(let i=0;i<4;i++){ (function(i){
+    const im=new Image(); im.src='assets/frame_'+k+'_'+i+'.png';
+    im.onload=()=>{ try{ out[i]=downscale(im,target); }catch(e){ out[i]=im; } sprites[k]=out.filter(Boolean); };
+    im.onerror=()=>{ if(++errs===4 && !sprites[k]) loadAB(k,target); };
+  })(i); }
 }
-for (const k in CHARS) loadCycle(k);
+for (const k in CHARS) loadFrames(k);
 let bg = new Image(), bgReady = false; bg.src = 'assets/bg_runner.png'; bg.onload = () => bgReady = true;
 let acorn = null; { const a = new Image(); a.src = 'assets/prop_acorn.png'; a.onload = () => { try { acorn = downscale(keyOutWhiteBg(a), 90); } catch(e){} }; }
 
